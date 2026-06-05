@@ -1,0 +1,57 @@
+[project]
+name = "lib-image-maker"
+version = "0.1.0"
+description = "Library for making images!"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = ["pillow==12.2.*"]
+
+[build-system]
+requires = ["uv_build>=0.11.12,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+namespace-packages = ["tests"]
+
+[tool.ruff.lint]
+select = [
+    "A",      # std types
+    "ANN",    # annotations
+    "BLE",    # blanket except
+    "C4",     # comprehension
+    "E",      # style errors
+    "EM",     # error messages
+    "EXE",    # shebangs
+    "F",      # format
+    "FA",     # future
+    "FLY",    # expr fstring
+    "FURB",   # syn upgrades
+    "G",      # log messages
+    "I",      # imports
+    "ICN",    # import conventions
+    "INP001",
+    "ISC",    # str cat
+    "LOG",    # logging
+    "NPY",    # numpy
+    "PERF",   # perflint
+    "PIE",    # misc
+    "PL",     # pylint
+    "PT",     # pytest
+    "Q",      # quotes
+    "RUF",    # variety
+    "T10",    # pdb.trace
+    "T20",    # print
+    "TC",     # type checking
+    "TD",     # todos
+    "TRY",    # try/catch
+    "UP",     # syn upgrades
+    "W",      # style warnings
+]
+ignore = [
+    "PIE808",  # range start 0
+    "PLR",     # silly
+    "PLC0415", # imports inside functions
+    "TD003",   # todo require link
+    "UP015",   # open() mode='r'
+]
