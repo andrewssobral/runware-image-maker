@@ -45,10 +45,7 @@ def required_bytes(model_cls: type[lib_image_maker.Model]) -> int:
 _LOAD_LOCK: threading.Lock = threading.Lock()
 
 
-def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
-    # is_xl no longer affects sizing (now derived from the model family); the parameter
-    # is retained until the schema/API change removes the is_xl field together with it.
-
+def load_stable_diffusion(url: str) -> AnyModel:
     # Warm path: cache hit needs no lock.
     if (model := memory.MANAGER.get(url)) is not None:
         return model

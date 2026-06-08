@@ -7,9 +7,6 @@ class StableDiffusionJob(pydantic.BaseModel, extra="forbid", use_attribute_docst
     model: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
     "The model to use for inference"
 
-    is_xl: bool = False
-    "True for SDXL, False for SD15"
-
     width: int = pydantic.Field(default=1024, ge=128, le=2048)
     "Image width in pixels"
 

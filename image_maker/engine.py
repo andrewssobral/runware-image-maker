@@ -6,7 +6,7 @@ from . import loader, schema, utils
 
 
 def make_image(job: schema.StableDiffusionJob) -> Image.Image:
-    model = loader.load_stable_diffusion(job.model, job.is_xl)
+    model = loader.load_stable_diffusion(job.model)
     model_kwargs = {}
 
     if isinstance(model, lib_image_maker.SDXLModel):
