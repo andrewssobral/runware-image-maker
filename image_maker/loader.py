@@ -90,7 +90,7 @@ def load_stable_diffusion(url: str) -> AnyModel:
                 try:
                     model = model_cls(url.encode(), bytes_per_param=bpp)
                 except MemoryError:
-                    memory.MANAGER.free(999 * 1024**3)  # drop all cached models and retry once
+                    memory.MANAGER.free(total)  # drop all cached models (free the whole pool) and retry once
                     try:
                         model = model_cls(url.encode(), bytes_per_param=bpp)
                     except MemoryError as exc:
