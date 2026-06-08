@@ -7,6 +7,15 @@ from . import memory, utils
 
 AnyModel = lib_image_maker.SD15Model | lib_image_maker.SDXLModel | lib_image_maker.Flux1Model
 
+
+class ModelTooLargeError(Exception):
+    "The model cannot fit the VRAM pool even at its configured precision (permanent)."
+
+
+class InsufficientVRAMError(Exception):
+    "VRAM was momentarily exhausted; the load can be retried (transient)."
+
+
 # Ordered string->class registry for zero-allocation family detection. Each predicate
 # mirrors the corresponding model's `_read_weights` in lib_image_maker. Predicates can
 # overlap (first match wins), so the most specific is checked first: Flux's `flux.1`
@@ -67,14 +76,26 @@ def load_stable_diffusion(url: str) -> AnyModel:
             with utils.timed_scope(f"Loaded model {url}"):
                 model_cls = detect_model(url)
                 bpp = bytes_per_param(model_cls)
-                if not memory.MANAGER.free(required_bytes(model_cls)):
+                need = required_bytes(model_cls)
+
+                _, total = lib_image_maker.memory()
+                if need > total:  # can never fit — fail before evicting anything
+                    need_gib, total_gib = need / 1024**3, total / 1024**3
+                    msg = f"{model_cls.__name__} needs {need_gib:.1f} GiB > {total_gib:.0f} GiB pool"
+                    raise ModelTooLargeError(msg)
+
+                if not memory.MANAGER.free(need):
                     utils.IM_LOGGER.warning("Did not free enough memory for the model, inference may fail!")
 
                 try:
                     model = model_cls(url.encode(), bytes_per_param=bpp)
                 except MemoryError:
-                    memory.MANAGER.free(999 * 1024**3)  # drop all lib_image_maker and try again
-                    model = model_cls(url.encode(), bytes_per_param=bpp)
+                    memory.MANAGER.free(999 * 1024**3)  # drop all cached models and retry once
+                    try:
+                        model = model_cls(url.encode(), bytes_per_param=bpp)
+                    except MemoryError as exc:
+                        msg = "Insufficient VRAM to load the model; please retry"
+                        raise InsufficientVRAMError(msg) from exc
 
                 memory.MANAGER.store(url, model)
 
