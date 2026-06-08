@@ -1,3 +1,4 @@
+import threading
 from collections.abc import Callable
 
 import lib_image_maker
@@ -26,25 +27,38 @@ def detect_model(url: str) -> type[lib_image_maker.Model]:
     raise RuntimeError(msg)
 
 
+# Serializes the cold-load section so concurrent requests for the same model don't
+# double-allocate / double-load. A single global lock (per-model locks are deferred,
+# C12); the warm cache-hit path never acquires it, so inference stays parallel.
+_LOAD_LOCK: threading.Lock = threading.Lock()
+
+
 def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
-    if (model := memory.MANAGER.get(url)) is None:
-        with utils.timed_scope(f"Loaded model {url}"):
-            if is_xl:
-                freed = memory.MANAGER.free(6 * 1024**3)
-            else:
-                freed = memory.MANAGER.free(1 * 1024**3)
+    # Warm path: cache hit needs no lock.
+    if (model := memory.MANAGER.get(url)) is not None:
+        return model
 
-            if not freed:
-                utils.IM_LOGGER.warning("Did not free enough memory for the model, inference may fail!")
+    # Cold path: serialize, then double-check (another thread may have loaded it
+    # while we waited on the lock).
+    with _LOAD_LOCK:
+        if (model := memory.MANAGER.get(url)) is None:
+            with utils.timed_scope(f"Loaded model {url}"):
+                if is_xl:
+                    freed = memory.MANAGER.free(6 * 1024**3)
+                else:
+                    freed = memory.MANAGER.free(1 * 1024**3)
 
-            model_cls = detect_model(url)
-            try:
-                model = model_cls(url.encode())
-            except MemoryError:
-                memory.MANAGER.free(999 * 1024**3)  # drop all lib_image_maker and try again
-                model = model_cls(url.encode())
+                if not freed:
+                    utils.IM_LOGGER.warning("Did not free enough memory for the model, inference may fail!")
 
-            memory.MANAGER.store(url, model)
+                model_cls = detect_model(url)
+                try:
+                    model = model_cls(url.encode())
+                except MemoryError:
+                    memory.MANAGER.free(999 * 1024**3)  # drop all lib_image_maker and try again
+                    model = model_cls(url.encode())
+
+                memory.MANAGER.store(url, model)
 
     assert isinstance(model, AnyModel), f"Model was unknown type {type(model)}"
     return model
