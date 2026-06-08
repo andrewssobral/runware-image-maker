@@ -33,6 +33,12 @@ class ModelManager:
                 except StopIteration:
                     break
                 del self._held[dropped]
+                # Force immediate reclaim of the model's simulated VRAM. On CPython this is
+                # redundant (refcount-zero on `del` fires weakref.finalize at once), but we keep
+                # it as defensive insurance: lib_image_maker is an independently-updated upstream
+                # boundary that could introduce reference cycles, and on non-refcounting runtimes
+                # (e.g. PyPy) del does NOT promptly finalize — without this, the memory() re-read
+                # below would not see the freed bytes. Eviction is rare, so the cost is negligible.
                 gc.collect()
                 utils.IM_LOGGER.info(f"Dropped model {dropped}")
                 free_bytes, _ = lib_image_maker.memory()
