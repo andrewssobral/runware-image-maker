@@ -1,20 +1,29 @@
+from collections.abc import Callable
+
 import lib_image_maker
 
 from . import memory, utils
 
 AnyModel = lib_image_maker.SD15Model | lib_image_maker.SDXLModel | lib_image_maker.Flux1Model
 
+# Ordered string->class registry for zero-allocation family detection. Each predicate
+# mirrors the corresponding model's `_read_weights` in lib_image_maker; order matches
+# AnyModel and must be preserved (predicates can overlap — first match wins). Keep in
+# sync if the lib's accepted model strings change.
+_REGISTRY: list[tuple[type[lib_image_maker.Model], Callable[[str], bool]]] = [
+    (lib_image_maker.SD15Model, lambda s: s.startswith("stable-diffusion-v1-5")),
+    (lib_image_maker.SDXLModel, lambda s: "xl" in s.lower()),
+    (lib_image_maker.Flux1Model, lambda s: "flux.1" in s.lower()),
+]
 
-def auto_model(data: bytes, _n: int = 0, _last_error: BaseException | None = None) -> AnyModel:
-    try:
-        return AnyModel.__args__[_n](data)
-    except IndexError:
-        if _last_error:
-            raise _last_error
-        else:
-            raise
-    except Exception as e:  # noqa: BLE001 # It gets re-raised later if it fails.
-        return auto_model(data, _n + 1, e)
+
+def detect_model(url: str) -> type[lib_image_maker.Model]:
+    "Return the model class for a model string without constructing (no VRAM alloc)."
+    for cls, matches in _REGISTRY:
+        if matches(url):
+            return cls
+    msg = f"Unrecognized model: {url}"
+    raise RuntimeError(msg)
 
 
 def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
@@ -28,11 +37,12 @@ def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
             if not freed:
                 utils.IM_LOGGER.warning("Did not free enough memory for the model, inference may fail!")
 
+            model_cls = detect_model(url)
             try:
-                model = auto_model(url.encode())
+                model = model_cls(url.encode())
             except MemoryError:
                 memory.MANAGER.free(999 * 1024**3)  # drop all lib_image_maker and try again
-                model = auto_model(url.encode())
+                model = model_cls(url.encode())
 
             memory.MANAGER.store(url, model)
 
