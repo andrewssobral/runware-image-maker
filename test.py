@@ -19,6 +19,7 @@ SDXL_MODELS: list[str] = [
 
 
 def post(data: dict[str, str | float]) -> PIL.Image.Image:
+    data = {"prompt": "a scenic landscape", **data}
     return PIL.Image.open(
         io.BytesIO(
             httpx.post(
