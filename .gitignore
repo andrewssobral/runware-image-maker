@@ -10,8 +10,10 @@ wheels/
 .venv
 
 # Local
-CLAUDE.md
 CLAUDE.*.md
-docs/
-_*
+docs/*
+!docs/DESIGN.md
+!docs/FINDINGS.md
+!docs/SELF_REVIEW.md
 ._*
+*.sh

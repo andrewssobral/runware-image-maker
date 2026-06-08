@@ -38,3 +38,16 @@ CONTRIBUTING
   - An overview of your strategy in using LLMs or other coding agents.
 - **Questions:** If something is unclear, document your assumptions rather than asking for clarification.
 - **Testing:** Existing tests should pass. Add tests if you think they're needed and explain your reasoning in the self-review.
+
+SUBMISSION
+---
+This fork integrates Flux.1 and fixes the defects that were blocking it. The work is
+written up in three short documents:
+
+- **[docs/SELF_REVIEW.md](docs/SELF_REVIEW.md)** — what changed and the results (start here).
+- **[docs/DESIGN.md](docs/DESIGN.md)** — the redesign, and the trade-offs behind each decision.
+- **[docs/FINDINGS.md](docs/FINDINGS.md)** — the diagnosis: the bugs I found, with reproductions.
+
+The changes are organized as [five small pull requests](https://github.com/andrewssobral/runware-image-maker/pulls?q=is%3Apr).
+
+Run the tests with `uv run pytest` (standalone — no server needed).
