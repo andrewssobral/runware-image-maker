@@ -1,13 +1,15 @@
 from PIL import Image
 
+import lib_image_maker
+
 from . import loader, schema, utils
 
 
 def make_image(job: schema.StableDiffusionJob) -> Image.Image:
-    model = loader.load_stable_diffusion(job.model, job.is_xl)
+    model = loader.load_stable_diffusion(job.model)
     model_kwargs = {}
 
-    if job.is_xl:
+    if isinstance(model, lib_image_maker.SDXLModel):
         model_kwargs["aesthetics_score"] = job.aesthetics_score
         model_kwargs["quality_score"] = job.quality_score
 

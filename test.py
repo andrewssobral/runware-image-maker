@@ -19,6 +19,7 @@ SDXL_MODELS: list[str] = [
 
 
 def post(data: dict[str, str | float]) -> PIL.Image.Image:
+    data = {"prompt": "a scenic landscape", **data}
     return PIL.Image.open(
         io.BytesIO(
             httpx.post(
@@ -34,7 +35,7 @@ def post(data: dict[str, str | float]) -> PIL.Image.Image:
 
 @pytest.mark.parametrize(("model"), SD15_MODELS + SDXL_MODELS)
 def test_models(model: str) -> None:
-    post({"model": model, "is_xl": model in SDXL_MODELS}).verify()
+    post({"model": model}).verify()
 
 
 @pytest.mark.parametrize(
@@ -47,15 +48,15 @@ def test_models(model: str) -> None:
     ],
 )
 def test_resolutions(model: str, w: int, h: int) -> None:
-    assert post({"model": model, "width": w, "height": h, "is_xl": model in SDXL_MODELS}).size == (w, h)
+    assert post({"model": model, "width": w, "height": h}).size == (w, h)
 
 
 @pytest.mark.parametrize(
     ("data", "value"),
     [
         ({"model": SD15_MODELS[0]}, 50),
-        ({"model": SDXL_MODELS[0], "is_xl": True, "aesthetics_score": 8, "quality_score": 80}, 80),
-        ({"model": SDXL_MODELS[-1], "is_xl": True, "aesthetics_score": 5, "quality_score": 90}, 70),
+        ({"model": SDXL_MODELS[0], "aesthetics_score": 8, "quality_score": 80}, 80),
+        ({"model": SDXL_MODELS[-1], "aesthetics_score": 5, "quality_score": 90}, 70),
     ],
 )
 def test_jobs(data: dict[str, float | str], value: float) -> None:
