@@ -1,8 +1,11 @@
 import io
 
-import httpx
+import fastapi
 import PIL.Image
 import pytest
+from fastapi.testclient import TestClient
+
+from image_maker import router
 
 SD15_MODELS: list[str] = [
     "stable-diffusion-v1-5/stable-diffusion-inpainting",
@@ -17,20 +20,22 @@ SDXL_MODELS: list[str] = [
     "cagliostrolab/animagine-xl-4.0",
 ]
 
+FLUX_MODELS: list[str] = [
+    "black-forest-labs/FLUX.1-dev",
+    "black-forest-labs/FLUX.1-schnell",
+]
+
+
+_app = fastapi.FastAPI()
+_app.include_router(router.ROUTER)
+_CLIENT = TestClient(_app)
+
 
 def post(data: dict[str, str | float]) -> PIL.Image.Image:
     data = {"prompt": "a scenic landscape", **data}
-    return PIL.Image.open(
-        io.BytesIO(
-            httpx.post(
-                "http://localhost:12345/image_maker",
-                json=data,
-                timeout=60,
-            )
-            .raise_for_status()
-            .read()
-        )
-    )
+    response = _CLIENT.post("/image_maker", json=data)
+    response.raise_for_status()
+    return PIL.Image.open(io.BytesIO(response.content))
 
 
 @pytest.mark.parametrize(("model"), SD15_MODELS + SDXL_MODELS)
@@ -57,6 +62,8 @@ def test_resolutions(model: str, w: int, h: int) -> None:
         ({"model": SD15_MODELS[0]}, 50),
         ({"model": SDXL_MODELS[0], "aesthetics_score": 8, "quality_score": 80}, 80),
         ({"model": SDXL_MODELS[-1], "aesthetics_score": 5, "quality_score": 90}, 70),
+        ({"model": FLUX_MODELS[0], "guidance_embedding": 3.5}, 35),
+        ({"model": FLUX_MODELS[1], "guidance_embedding": 3.5}, 35),
     ],
 )
 def test_jobs(data: dict[str, float | str], value: float) -> None:
@@ -64,3 +71,17 @@ def test_jobs(data: dict[str, float | str], value: float) -> None:
     flat = img.get_flattened_data()
     avg = sum(flat) / len(flat)  # pyright: ignore
     assert abs(avg - value) < 1e-8
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"model": FLUX_MODELS[0]},  # Flux requires guidance_embedding
+        {"model": SDXL_MODELS[0], "guidance_embedding": 5},  # guidance is Flux-only
+        {"model": SD15_MODELS[0], "guidance_embedding": 5},  # guidance is Flux-only
+        {"model": SD15_MODELS[0], "aesthetics_score": 8},  # scores are SDXL-only
+        {"model": "acme/unknown-model", "guidance_embedding": 1},  # unrecognized model
+    ],
+)
+def test_invalid_family_params_rejected(data: dict[str, str | float]) -> None:
+    assert _CLIENT.post("/image_maker", json={"prompt": "x", **data}).status_code == 422
