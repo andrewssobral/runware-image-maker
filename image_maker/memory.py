@@ -1,5 +1,6 @@
 import gc
 import threading
+from collections import OrderedDict
 
 import lib_image_maker
 
@@ -8,7 +9,7 @@ from . import utils
 
 class ModelManager:
     def __init__(self) -> None:
-        self._held: dict[str, lib_image_maker.Model] = {}
+        self._held: OrderedDict[str, lib_image_maker.Model] = OrderedDict()
         self._mutex: threading.Lock = threading.Lock()
 
     def store(self, key: str, model: lib_image_maker.Model) -> None:
@@ -17,7 +18,10 @@ class ModelManager:
 
     def get(self, key: str) -> lib_image_maker.Model | None:
         with self._mutex:
-            return self._held.get(key, None)
+            model = self._held.get(key)
+            if model is not None:
+                self._held.move_to_end(key)  # mark most-recently-used
+            return model
 
     def free(self, num_bytes: int) -> bool:
         with self._mutex:
