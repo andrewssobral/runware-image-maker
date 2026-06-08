@@ -1,8 +1,11 @@
 import io
 
-import httpx
+import fastapi
 import PIL.Image
 import pytest
+from fastapi.testclient import TestClient
+
+from image_maker import router
 
 SD15_MODELS: list[str] = [
     "stable-diffusion-v1-5/stable-diffusion-inpainting",
@@ -18,19 +21,16 @@ SDXL_MODELS: list[str] = [
 ]
 
 
+_app = fastapi.FastAPI()
+_app.include_router(router.ROUTER)
+_CLIENT = TestClient(_app)
+
+
 def post(data: dict[str, str | float]) -> PIL.Image.Image:
     data = {"prompt": "a scenic landscape", **data}
-    return PIL.Image.open(
-        io.BytesIO(
-            httpx.post(
-                "http://localhost:12345/image_maker",
-                json=data,
-                timeout=60,
-            )
-            .raise_for_status()
-            .read()
-        )
-    )
+    response = _CLIENT.post("/image_maker", json=data)
+    response.raise_for_status()
+    return PIL.Image.open(io.BytesIO(response.content))
 
 
 @pytest.mark.parametrize(("model"), SD15_MODELS + SDXL_MODELS)

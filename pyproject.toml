@@ -10,6 +10,11 @@ dependencies = [
     "pytest>=9.0.3",
 ]
 
+[tool.pytest.ini_options]
+# Collect both test.py and test_*.py so `uv run pytest` runs the whole suite
+# (the in-process TestClient means no server needs to be started first).
+python_files = ["test*.py"]
+
 [tool.ruff]
 line-length = 120
 namespace-packages = ["tests"]

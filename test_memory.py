@@ -11,6 +11,8 @@ _GIB = 1024**3
 
 @pytest.fixture
 def manager() -> Iterator[memory.ModelManager]:
+    memory.MANAGER._held.clear()  # reclaim the shared pool from prior in-process loads (test.py)
+    gc.collect()
     mgr = memory.ModelManager()
     yield mgr
     mgr._held.clear()  # release any held models so the process-global pool resets
