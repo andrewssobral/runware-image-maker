@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local
+CLAUDE.md
+CLAUDE.*.md
+docs/
+_*
+._*
