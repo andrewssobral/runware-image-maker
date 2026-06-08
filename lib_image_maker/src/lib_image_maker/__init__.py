@@ -29,9 +29,14 @@ class Model(abc.ABC):
     """Base class for all models.
     Initializes weights on class creation."""
 
-    def __init__(self, data: bytes) -> None:
-        _alloc(-self.parameters() * 2)
-        weakref.finalize(self, _alloc, self.parameters() * 2)
+    def __init__(self, data: bytes, bytes_per_param: float = 2.0) -> None:
+        # bytes_per_param is the load precision: 2 = fp16 (default, unchanged behavior),
+        # 1 = int8, 0.5 = 4-bit. The same `reserve` is used to allocate and to free (via
+        # the finalizer), so the two can never drift; parameters() is untouched, so the
+        # timing model below is unaffected — precision changes memory only.
+        reserve = int(self.parameters() * bytes_per_param)
+        _alloc(-reserve)
+        weakref.finalize(self, _alloc, reserve)
         self._read_weights(data)
         __import__("time").sleep(self.parameters() / 1024**3 / 4)
 
