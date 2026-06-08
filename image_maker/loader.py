@@ -8,13 +8,14 @@ from . import memory, utils
 AnyModel = lib_image_maker.SD15Model | lib_image_maker.SDXLModel | lib_image_maker.Flux1Model
 
 # Ordered string->class registry for zero-allocation family detection. Each predicate
-# mirrors the corresponding model's `_read_weights` in lib_image_maker; order matches
-# AnyModel and must be preserved (predicates can overlap — first match wins). Keep in
-# sync if the lib's accepted model strings change.
+# mirrors the corresponding model's `_read_weights` in lib_image_maker. Predicates can
+# overlap (first match wins), so the most specific is checked first: Flux's `flux.1`
+# before SDXL's broad `xl` substring — otherwise a Flux path containing "xl" would be
+# misdetected as SDXL. Keep in sync if the lib's accepted model strings change.
 _REGISTRY: list[tuple[type[lib_image_maker.Model], Callable[[str], bool]]] = [
     (lib_image_maker.SD15Model, lambda s: s.startswith("stable-diffusion-v1-5")),
-    (lib_image_maker.SDXLModel, lambda s: "xl" in s.lower()),
     (lib_image_maker.Flux1Model, lambda s: "flux.1" in s.lower()),
+    (lib_image_maker.SDXLModel, lambda s: "xl" in s.lower()),
 ]
 
 
