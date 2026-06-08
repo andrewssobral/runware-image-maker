@@ -21,20 +21,19 @@ class ModelManager:
 
     def free(self, num_bytes: int) -> bool:
         with self._mutex:
-            used, total = lib_image_maker.memory()
+            free_bytes, _ = lib_image_maker.memory()
 
-            while total - used < num_bytes:
+            while free_bytes < num_bytes:
                 try:
                     dropped: str = next(iter(self._held.keys()))
                 except StopIteration:
-                    used, total = lib_image_maker.memory()
                     break
                 del self._held[dropped]
                 gc.collect()
                 utils.IM_LOGGER.info(f"Dropped model {dropped}")
-                used, total = lib_image_maker.memory()
+                free_bytes, _ = lib_image_maker.memory()
 
-            return total - used >= num_bytes
+            return free_bytes >= num_bytes
 
 
 MANAGER: ModelManager = ModelManager()
