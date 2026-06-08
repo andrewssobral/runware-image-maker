@@ -4,7 +4,7 @@ import pydantic
 class StableDiffusionJob(pydantic.BaseModel, extra="forbid", use_attribute_docstrings=True):
     "Use an AI model to make images"
 
-    prompt: str
+    prompt: str = pydantic.Field(min_length=1)
     "Text prompt describing the image to generate"
 
     model: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
