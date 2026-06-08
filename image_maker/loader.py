@@ -27,6 +27,17 @@ def detect_model(url: str) -> type[lib_image_maker.Model]:
     raise RuntimeError(msg)
 
 
+# fp16 = 2 bytes/param, mirroring lib_image_maker's `* 2` reserve in Model.__init__.
+# Per-family precision (e.g. 4-bit Flux) arrives in a later commit; the free() sizing
+# here and the lib's load reserve must use the same value (C9 watch-item).
+_BYTES_PER_PARAM: int = 2
+
+
+def required_bytes(model_cls: type[lib_image_maker.Model]) -> int:
+    "VRAM a model reserves on load; reads parameters() without constructing (no alloc)."
+    return object.__new__(model_cls).parameters() * _BYTES_PER_PARAM
+
+
 # Serializes the cold-load section so concurrent requests for the same model don't
 # double-allocate / double-load. A single global lock (per-model locks are deferred,
 # C12); the warm cache-hit path never acquires it, so inference stays parallel.
@@ -34,6 +45,9 @@ _LOAD_LOCK: threading.Lock = threading.Lock()
 
 
 def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
+    # is_xl no longer affects sizing (now derived from the model family); the parameter
+    # is retained until the schema/API change removes the is_xl field together with it.
+
     # Warm path: cache hit needs no lock.
     if (model := memory.MANAGER.get(url)) is not None:
         return model
@@ -43,15 +57,10 @@ def load_stable_diffusion(url: str, is_xl: bool) -> AnyModel:
     with _LOAD_LOCK:
         if (model := memory.MANAGER.get(url)) is None:
             with utils.timed_scope(f"Loaded model {url}"):
-                if is_xl:
-                    freed = memory.MANAGER.free(6 * 1024**3)
-                else:
-                    freed = memory.MANAGER.free(1 * 1024**3)
-
-                if not freed:
+                model_cls = detect_model(url)
+                if not memory.MANAGER.free(required_bytes(model_cls)):
                     utils.IM_LOGGER.warning("Did not free enough memory for the model, inference may fail!")
 
-                model_cls = detect_model(url)
                 try:
                     model = model_cls(url.encode())
                 except MemoryError:
